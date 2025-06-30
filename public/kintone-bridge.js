@@ -120,68 +120,15 @@
 
     debugLog('✅ kintoneオブジェクトを確認しました');
 
-    // 特別なメソッド：利用可能なメソッド一覧を取得
-    if (methodName === 'listMethods') {
-      // 実行開始ログ
-      console.log('====================================');
-      console.log('🚀 kintone JavaScript API 実行開始');
-      console.log('====================================');
-      console.log('');
-
-      debugLog('📋 メソッド一覧を収集中...');
-      const methods = [];
-
-      /**
-       * オブジェクトを再帰的に探索してメソッド一覧を収集
-       * 
-       * @param {object} obj - 探索対象のオブジェクト
-       * @param {string} prefix - メソッドパスのプレフィックス
-       */
-      function collectMethods(obj, prefix, depth) {
-        // 再帰の深度制限（無限ループ防止）
-        depth = depth || 0;
-        const MAX_DEPTH = 10;
-        if (depth > MAX_DEPTH) {
-          return;
-        }
-        for (let key in obj) {
-          try {
-            const fullPath = prefix ? prefix + '.' + key : key;
-
-            if (typeof obj[key] === 'function') {
-              // 関数の場合はメソッドリストに追加
-              methods.push(fullPath);
-            } else if (typeof obj[key] === 'object' && obj[key] !== null &&
-              !Array.isArray(obj[key]) && key !== 'Promise') {
-              // オブジェクトの場合は再帰的に探索（Promise型は除外）
-              collectMethods(obj[key], fullPath, depth + 1);
-            }
-          } catch (e) {
-            // アクセスできないプロパティはスキップ
-          }
-        }
-      }
-
-      // kintoneオブジェクト全体を探索
-      collectMethods(window.kintone, '');
-      debugLog(`✅ ${methods.length}個のメソッドを検出しました`);
-
-      // メソッド数をコンソールに出力
-      console.log(`📋 利用可能なメソッド数: ${methods.length}`);
-      console.log('');
-
-      return Promise.resolve(methods.sort());
-    }
 
     // 特別なメソッド：実行完了統計を表示
     if (methodName === 'showExecutionSummary') {
       const stats = args && args[0];
       if (stats) {
         console.log('====================================');
-        console.log('🎉 kintone JavaScript API 実行完了');
+        console.log('🎉 kintone Wide API Tester 実行完了');
         console.log('✅ 成功: ' + stats.success + '件');
         console.log('❌ エラー: ' + stats.error + '件');
-        console.log('⏭️ スキップ: ' + stats.skipped + '件');
         console.log('📊 合計: ' + stats.total + '件');
         console.log('====================================');
       }
@@ -217,6 +164,26 @@
     if (methodName === 'logIconsStart') {
       console.log('🔧 実行: kintone.app.getIcons() でアプリアイコン取得中...');
       return Promise.resolve('ログ出力完了');
+    }
+
+    // 特別なメソッド：kintone.api()を実行
+    if (methodName === 'api') {
+      debugLog('🌐 kintone.api() 実行中...', args);
+      
+      if (!args || args.length < 2) {
+        throw new Error('kintone.api() には URL と HTTP メソッドが必要です');
+      }
+      
+      const url = args[0];
+      const method = args[1];
+      const requestData = args[2] || {};
+      
+      // kintone.api.url()でフルURLを生成
+      const fullUrl = window.kintone.api.url(url);
+      debugLog('📍 生成されたURL:', fullUrl);
+      
+      // kintone.api()を実行
+      return window.kintone.api(fullUrl, method, requestData);
     }
 
     // 通常のメソッド：動的にkintoneメソッドを実行
@@ -309,7 +276,19 @@
 
       // 実行開始ログをkintoneページのコンソールに出力（内部メソッド以外）
       if (methodName !== 'listMethods' && !isInternalMethod) {
-        console.log(`📝 kintone.${methodName}() 実行中...`);
+        if (methodName === 'api') {
+          // APIのURLに応じてメッセージを変更
+          const apiUrl = event.data.args && event.data.args[0];
+          if (apiUrl === '/k/v1/apps/statistics.json') {
+            console.log('📝 アプリの使用状況を取得 /k/v1/apps/statistics.json 実行中...');
+          } else if (apiUrl === '/k/v1/spaces/statistics.json') {
+            console.log('📝 スペースの使用状況を取得 /k/v1/spaces/statistics.json 実行中...');
+          } else {
+            console.log(`📝 kintone.api(${apiUrl}) 実行中...`);
+          }
+        } else {
+          console.log(`📝 kintone.${methodName}() 実行中...`);
+        }
       } else if (isInternalMethod && DEBUG_MODE) {
         debugLog(`📝 [内部メソッド] ${methodName}() 実行中...`);
       }
@@ -331,7 +310,19 @@
             // 成功ログをkintoneページのコンソールに出力（内部メソッド以外）
             if (methodName !== 'listMethods' && !isInternalMethod) {
               const formattedResult = formatResultForLog(displayData);
-              console.log(`✅ kintone.${methodName}() 結果:`);
+              if (methodName === 'api') {
+                // APIのURLに応じてメッセージを変更
+                const apiUrl = event.data.args && event.data.args[0];
+                if (apiUrl === '/k/v1/apps/statistics.json') {
+                  console.log('✅ アプリの使用状況を取得 /k/v1/apps/statistics.json 結果:');
+                } else if (apiUrl === '/k/v1/spaces/statistics.json') {
+                  console.log('✅ スペースの使用状況を取得 /k/v1/spaces/statistics.json 結果:');
+                } else {
+                  console.log(`✅ kintone.api(${apiUrl}) 結果:`);
+                }
+              } else {
+                console.log(`✅ kintone.${methodName}() 結果:`);
+              }
               console.log(`   ${formattedResult}`);
             } else if (isInternalMethod && DEBUG_MODE) {
               const formattedResult = formatResultForLog(displayData);
@@ -374,7 +365,19 @@
 
             // エラーログをkintoneページのコンソールに出力（内部メソッド以外）
             if (!isInternalMethod) {
-              console.log(`❌ kintone.${methodName}() エラー: ${errorMessage + errorDetails}`);
+              if (methodName === 'api') {
+                // APIのURLに応じてメッセージを変更
+                const apiUrl = event.data.args && event.data.args[0];
+                if (apiUrl === '/k/v1/apps/statistics.json') {
+                  console.log(`❌ アプリの使用状況を取得 /k/v1/apps/statistics.json エラー: ${errorMessage + errorDetails}`);
+                } else if (apiUrl === '/k/v1/spaces/statistics.json') {
+                  console.log(`❌ スペースの使用状況を取得 /k/v1/spaces/statistics.json エラー: ${errorMessage + errorDetails}`);
+                } else {
+                  console.log(`❌ kintone.api(${apiUrl}) エラー: ${errorMessage + errorDetails}`);
+                }
+              } else {
+                console.log(`❌ kintone.${methodName}() エラー: ${errorMessage + errorDetails}`);
+              }
             } else if (DEBUG_MODE) {
               debugLog(`❌ [内部メソッド] ${methodName}() エラー: ${errorMessage + errorDetails}`);
             }
@@ -404,7 +407,19 @@
         // 成功ログをkintoneページのコンソールに出力（内部メソッド以外）
         if (methodName !== 'listMethods' && !isInternalMethod) {
           const formattedResult = formatResultForLog(displayData);
-          console.log(`✅ kintone.${methodName}() 結果:`);
+          if (methodName === 'api') {
+            // APIのURLに応じてメッセージを変更
+            const apiUrl = event.data.args && event.data.args[0];
+            if (apiUrl === '/k/v1/apps/statistics.json') {
+              console.log('✅ アプリの使用状況を取得 /k/v1/apps/statistics.json 結果:');
+            } else if (apiUrl === '/k/v1/spaces/statistics.json') {
+              console.log('✅ スペースの使用状況を取得 /k/v1/spaces/statistics.json 結果:');
+            } else {
+              console.log(`✅ kintone.api(${apiUrl}) 結果:`);
+            }
+          } else {
+            console.log(`✅ kintone.${methodName}() 結果:`);
+          }
           console.log(`   ${formattedResult}`);
         } else if (isInternalMethod && DEBUG_MODE) {
           const formattedResult = formatResultForLog(displayData);
@@ -434,7 +449,19 @@
       // エラーメッセージを返送（処理は継続）
       let errorMsg = `予期しないエラー: ${error.message || 'Unknown error'} (処理は継続されます)`;
       if (!isInternalMethod) {
-        console.log(`❌ kintone.${methodName}() 予期しないエラー: ${error.message || 'Unknown error'}`);
+        if (methodName === 'api') {
+          // APIのURLに応じてメッセージを変更
+          const apiUrl = event.data.args && event.data.args[0];
+          if (apiUrl === '/k/v1/apps/statistics.json') {
+            console.log(`❌ アプリの使用状況を取得 /k/v1/apps/statistics.json 予期しないエラー: ${error.message || 'Unknown error'}`);
+          } else if (apiUrl === '/k/v1/spaces/statistics.json') {
+            console.log(`❌ スペースの使用状況を取得 /k/v1/spaces/statistics.json 予期しないエラー: ${error.message || 'Unknown error'}`);
+          } else {
+            console.log(`❌ kintone.api(${apiUrl}) 予期しないエラー: ${error.message || 'Unknown error'}`);
+          }
+        } else {
+          console.log(`❌ kintone.${methodName}() 予期しないエラー: ${error.message || 'Unknown error'}`);
+        }
       } else if (DEBUG_MODE) {
         debugLog(`❌ [内部メソッド] ${methodName}() 予期しないエラー: ${error.message || 'Unknown error'}`);
       }

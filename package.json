@@ -1,17 +1,17 @@
 {
-  "name": "kintone-js-api-tester",
-  "description": "kintone JavaScript API testing browser extension",
+  "name": "kintone-wide-api-tester",
+  "description": "kintone Wide course API testing browser extension",
   "version": "1.0.0",
   "author": "r3-yamauchi",
   "license": "MIT",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/r3-yamauchi/kintone-js-api-tester.git"
+    "url": "https://github.com/r3-yamauchi/kintone-wide-api-tester.git"
   },
-  "homepage": "https://github.com/r3-yamauchi/kintone-js-api-tester",
+  "homepage": "https://github.com/r3-yamauchi/kintone-wide-api-tester",
   "bugs": {
-    "url": "https://github.com/r3-yamauchi/kintone-js-api-tester/issues"
+    "url": "https://github.com/r3-yamauchi/kintone-wide-api-tester/issues"
   },
   "scripts": {
     "dev": "wxt",
