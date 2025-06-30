@@ -1,24 +1,27 @@
 /**
  * デバッグ設定管理
  * 
- * デバッグモードの有効/無効を一元管理し、
- * 本番環境では不要なログ出力を制御します。
+ * kintoneワイドコースAPIテスターのデバッグモードを一元管理します。
+ * 本番環境では不要なログ出力を制御し、開発時のみ詳細情報を表示します。
  */
 
 /**
  * デバッグモードフラグ
  * 
- * true: 詳細なデバッグログを出力
- * false: kintone JavaScript API実行結果のみを出力（推奨）
+ * true: 詳細なデバッグログを出力（開発時）
+ * false: kintoneワイドコースAPI実行結果のみを出力（本番推奨）
  * 
  * 注意：このフラグを変更した場合は、public/kintone-bridge.js内の
- * DEBUG_MODEも同じ値に手動で変更してください
+ * DEBUG_MODEフラグも同じ値に手動で変更してください。
+ * 両ファイルで設定を同期する必要があります。
  */
 export const DEBUG_MODE = false;
 
 /**
  * デバッグ用ログ出力関数
- * DEBUG_MODEがfalseの場合は何も出力しない
+ * 
+ * 開発時のデバッグ情報を出力します。
+ * DEBUG_MODEがfalseの場合は何も出力されません。
  * 
  * @param message - ログメッセージ
  * @param data - 追加データ（オプション）
@@ -35,7 +38,9 @@ export function debugLog(message: string, data?: any): void {
 
 /**
  * デバッグ用警告ログ出力関数
- * DEBUG_MODEがfalseの場合は何も出力しない
+ * 
+ * 開発時の警告情報を出力します。
+ * DEBUG_MODEがfalseの場合は何も出力されません。
  * 
  * @param message - 警告メッセージ
  * @param data - 追加データ（オプション）
@@ -52,7 +57,9 @@ export function debugWarn(message: string, data?: any): void {
 
 /**
  * デバッグ用エラーログ出力関数
- * エラーは重要なので、DEBUG_MODEに関係なく常に出力
+ * 
+ * エラー情報を出力します。
+ * エラーは重要なので、DEBUG_MODEの設定に関係なく常に出力されます。
  * 
  * @param message - エラーメッセージ
  * @param data - 追加データ（オプション）
@@ -66,8 +73,10 @@ export function debugError(message: string, data?: any): void {
 }
 
 /**
- * kintone JavaScript API実行結果専用ログ
- * 常に出力される（メインの機能ログ）
+ * kintoneワイドコースAPI実行結果専用ログ出力関数
+ * 
+ * ワイドコースAPIの実行結果を出力します。
+ * これはメインの機能ログなので、DEBUG_MODEの設定に関係なく常に出力されます。
  * 
  * @param message - メッセージ
  * @param data - 追加データ（オプション）

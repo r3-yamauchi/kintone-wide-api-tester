@@ -1,9 +1,9 @@
 /**
- * kintone JavaScript API テスター ポップアップスクリプト
+ * kintone ワイドコースAPI テスター ポップアップスクリプト
  * 
  * ブラウザ拡張機能のポップアップUIを制御するメインスクリプトです。
- * kintoneページで利用可能なすべてのJavaScript APIメソッドを検出し、
- * 順次実行してDevToolsのConsoleに結果を表示します。
+ * kintoneワイドコース契約を確認し、ワイドコース専用APIの動作をテストして
+ * DevToolsのConsoleに結果を表示します。
  */
 
 import './style.css';
@@ -16,9 +16,6 @@ interface KintoneMethodResponse {
   error?: string;
 }
 
-
-type KintoneMethodName = string;
-
 interface ExecutionStats {
   success: number;
   error: number;
@@ -26,8 +23,8 @@ interface ExecutionStats {
   total: number;
 }
 
-// グローバル変数：取得したアプリIDを記憶
-let currentAppId: string | number | null = null;
+// 不要になったグローバル変数を削除（アプリID取得を行わないため）
+// let currentAppId: string | number | null = null;
 
 /**
  * ポップアップUIを動的に生成する関数
@@ -42,7 +39,7 @@ async function initializePopupUI() {
     debugLog('📋 現在のタブ:', tab.url);
 
     const isKintoneDomain = tab.url &&
-      (tab.url.includes('cybozu.com') || tab.url.includes('kintone.com'));
+      (tab.url.indexOf('cybozu.com') !== -1 || tab.url.indexOf('kintone.com') !== -1);
 
     debugLog('🔍 kintoneドメイン判定:', isKintoneDomain);
 
@@ -50,9 +47,9 @@ async function initializePopupUI() {
       // kintoneドメインの場合：通常のUI
       document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <div>
-          <h1>kintone JavaScript API Tester</h1>
+          <h1>kintone Wide API Tester</h1>
           <div class="card">
-            <button id="run-all-btn" type="button">Run All kintone Methods</button>
+            <button id="run-all-btn" type="button">Test Wide Course APIs</button>
           </div>
           <div id="status" class="status">結果はDevToolsのConsoleで確認してください</div>
         </div>
@@ -76,7 +73,7 @@ async function initializePopupUI() {
       // kintoneドメイン以外の場合：メッセージのみ表示
       document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <div>
-          <h1>kintone JavaScript API Tester</h1>
+          <h1>kintone Wide API Tester</h1>
           <div class="card warning">
             <h3>⚠️ kintoneページではありません</h3>
             <p>この拡張機能はkintoneページでのみ動作します。</p>
@@ -96,7 +93,7 @@ async function initializePopupUI() {
     // エラーが発生した場合はエラーメッセージを表示
     document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <div>
-        <h1>kintone JavaScript API Tester</h1>
+        <h1>kintone Wide API Tester</h1>
         <div class="card error">
           <h3>❌ エラーが発生しました</h3>
           <p>ページ情報の取得に失敗しました。</p>
@@ -144,7 +141,7 @@ async function callKintoneMethod(method: string, args?: unknown[], appId?: strin
   // タブのURLがkintoneドメインかチェック
   debugLog('🔍 現在のタブURL:', tab.url);
 
-  if (!tab.url || (!tab.url.includes('cybozu.com') && !tab.url.includes('kintone.com'))) {
+  if (!tab.url || (tab.url.indexOf('cybozu.com') === -1 && tab.url.indexOf('kintone.com') === -1)) {
     const errorMsg = `このページはkintoneドメインではありません。
 現在のURL: ${tab.url}
 kintoneページ（*.cybozu.com または *.kintone.com）でお試しください。`;
@@ -174,7 +171,7 @@ kintoneページ（*.cybozu.com または *.kintone.com）でお試しくださ�
     let errorMessage = '';
 
     // コンテンツスクリプトが読み込まれていない可能性
-    if (error instanceof Error && error.message.includes('Could not establish connection')) {
+    if (error instanceof Error && error.message.indexOf('Could not establish connection') !== -1) {
       errorMessage = `コンテンツスクリプトとの接続に失敗しました (メソッド: ${method})
 
 考えられる原因:
@@ -231,12 +228,12 @@ function formatResult(data: unknown): string {
 }
 
 /**
- * すべてのkintone JavaScript APIメソッドを順次実行するメイン関数
+ * kintoneワイドコースAPIをテストするメイン関数
  * 
  * 以下の処理を順番に実行します：
- * 1. 利用可能なメソッド一覧を取得
- * 2. 問題のあるメソッドをフィルタリング
- * 3. 各メソッドを順次実行してConsoleに結果を出力
+ * 1. ワイドコース契約確認（getAvailableApiTypes）
+ * 2. ワイドコース専用APIの実行（getAssignedApps）
+ * 3. ワイドコース専用REST API の実行（apps/statistics, spaces/statistics）
  * 4. 実行統計をConsoleとUIに表示
  */
 async function runAllMethods() {
@@ -249,191 +246,198 @@ async function runAllMethods() {
 
     // Console出力の開始ヘッダー
     apiLog('====================================');
-    apiLog('🚀 kintone JavaScript API 実行開始');
+    apiLog('🚀 kintone Wide API Tester 実行開始');
     apiLog('====================================');
     apiLog('');
 
-    // まず利用可能なメソッド一覧を取得
-    const methodsResponse = await callKintoneMethod('listMethods');
-
-    if (!methodsResponse?.success) {
-      throw new Error(methodsResponse?.error || 'Failed to get methods list');
-    }
-
-    const methods = methodsResponse.data as KintoneMethodName[];
-
-    if (!Array.isArray(methods)) {
-      throw new Error('メソッド一覧の取得に失敗しました');
-    }
-    // メソッド数はbridge scriptで出力される
-
-    // 最初にkintone.app.getId()を実行してアプリIDを取得
+    // 最初にkintone.getAvailableApiTypes()を実行してWIDE APIが利用可能かチェック
+    let isWideAvailable = false;
     try {
-      await callKintoneMethod('logInitialSetup', [], null);
-      const appIdResult = await callKintoneMethod('app.getId');
-      if (appIdResult?.success && appIdResult.data) {
-        currentAppId = appIdResult.data as string | number;
-        await callKintoneMethod('logAppIdSuccess', [currentAppId], currentAppId);
-
-        // アプリIDを取得できた場合、getIconsメソッドを実行
-        try {
-          await callKintoneMethod('logIconsStart', [], currentAppId);
-          const iconsResult = await callKintoneMethod('app.getIcons', [[currentAppId]], currentAppId);
-          if (iconsResult?.success) {
-            // アイコン取得成功はbridge scriptで自動ログ出力される
-          } else {
-            // エラーもbridge scriptで自動ログ出力される
-          }
-        } catch (error) {
-          // 例外もbridge scriptで自動ログ出力される
+      await callKintoneMethod('logWideCheckStart', [], null);
+      const apiTypesResult = await callKintoneMethod('getAvailableApiTypes');
+      if (apiTypesResult?.success && Array.isArray(apiTypesResult.data)) {
+        const apiTypes = apiTypesResult.data as string[];
+        isWideAvailable = apiTypes.includes('WIDE');
+        await callKintoneMethod('logWideCheckSuccess', [apiTypes, isWideAvailable], null);
+        
+        if (!isWideAvailable) {
+          // WIDEが利用できない場合は処理を終了
+          statusDiv.textContent = 'ワイドコース契約が必要です';
+          return;
         }
       } else {
-        await callKintoneMethod('logAppIdFailure', [appIdResult?.error || '不明なエラー'], null);
+        // APIタイプ取得失敗の場合は警告して処理継続
+        await callKintoneMethod('logWideCheckError', [apiTypesResult?.error || '不明なエラー'], null);
       }
     } catch (error) {
-      await callKintoneMethod('logAppIdError', [String(error)], null);
+      // 例外の場合も警告して処理継続
+      await callKintoneMethod('logWideCheckError', [String(error)], null);
     }
     apiLog('');
 
-    // 実行をスキップするメソッドのリスト
-    // これらのメソッドは引数が必要だったり、副作用があったりするため除外
-    const skipMethods = [
-      'Promise', 'api', 'events.on',
-      'oauth.clearAccessToken', 'oauth.hasAccessToken',
-      'oauth.redirectToAuthenticate', 'oauth.proxy',
-      'plugin.app.getConfig', 'plugin.app.proxy', 'proxy'
-    ];
+    // WIDEが利用可能な場合のみ、getAssignedApps()を実行
+    try {
+      await callKintoneMethod('logAssignedAppsStart', [], null);
+      const assignedAppsResult = await callKintoneMethod('app.getAssignedApps');
+      if (assignedAppsResult?.success) {
+        // 取得成功はbridge scriptで自動ログ出力される
+      } else {
+        // エラーもbridge scriptで自動ログ出力される
+      }
+    } catch (error) {
+      // 例外もbridge scriptで自動ログ出力される
+    }
+    apiLog('');
 
-    // パラメータが必要であるため実行をスキップするメソッド
-    const problematicMethods = [
-      'app.getRelatedRecordsTargetAppId',
-      'app.getLookupTargetAppId',
-      'app.getFieldElements',
-      'app.record.getFieldElement',
-      'app.record.getSpaceElement',
-      'app.record.setFieldShown',
-      'app.record.setGroupFieldOpen'
-    ];
-
+    // ワイドコース専用REST APIをテスト実行
+    apiLog('📊 ワイドコース専用REST APIをテスト中...');
+    
     // 実行統計用のカウンター
     const stats: ExecutionStats = {
       success: 0,
       error: 0,
       skipped: 0,
-      total: methods.length
+      total: 2
     };
 
-    // 各メソッドを順次実行
-    for (let i = 0; i < methods.length; i++) {
-      const method = methods[i];
+    try {
+      // kintone.api()を使用してアプリ統計APIを実行
+      const result = await callKintoneMethod('api', [
+        '/k/v1/apps/statistics.json',
+        'GET'
+      ], null);
 
-      // 既に実行済みのメソッドはスキップ
-      if (method === 'app.getId' || method === 'app.getIcons') {
-        if (method === 'app.getId') {
-          apiLog(`⏭️  [${i + 1}/${methods.length}] ${method} - スキップ（既に実行済み）`);
-        } else {
-          apiLog(`⏭️  [${i + 1}/${methods.length}] ${method} - スキップ（アプリID取得時に実行済み）`);
-        }
-        stats.skipped++;
-        continue;
-      }
-
-      // スキップ対象のメソッドかチェック（引数が必要なメソッドのみ）
-      if (skipMethods.includes(method) ||
-        problematicMethods.some(p => method.includes(p))) {
-
-        apiLog(`⏭️  [${i + 1}/${methods.length}] ${method} - スキップ（パラメータが必要）`);
-        stats.skipped++;
-        continue;
-      }
-
-      try {
-        apiLog(`📝 [${i + 1}/${methods.length}] kintone.${method}() 実行中...`);
-
-        // メソッドを実行（アプリIDが利用可能な場合は渡す）
-        const result = await callKintoneMethod(method, [], currentAppId);
-
-        if (result?.success) {
-          // 成功した場合は結果をフォーマットして表示
-          const formattedResult = formatResult(result.data);
-          apiLog(`✅ kintone.${method}() 結果:`);
-          apiLog(`   ${formattedResult}`);
-          stats.success++;
-        } else {
-          // エラーが発生した場合はエラーメッセージを表示
-          let errorMsg = result?.error || '不明なエラー';
-
-          // エラータイプ別の詳細な処理
-          if (errorMsg.includes('403') || errorMsg.includes('Forbidden')) {
-            errorMsg = '権限不足（403 Forbidden）- このメソッドは権限が必要ですが、処理を継続します';
-          } else if (errorMsg.includes('401') || errorMsg.includes('Unauthorized')) {
-            errorMsg = '認証エラー（401 Unauthorized）- ログインが必要ですが、処理を継続します';
-          } else if (errorMsg.includes('404') || errorMsg.includes('Not Found')) {
-            errorMsg = 'リソースが見つかりません（404 Not Found）- 処理を継続します';
-          } else if (errorMsg.includes('500') || errorMsg.includes('Internal Server Error')) {
-            errorMsg = 'サーバーエラー（500）- kintoneサーバー側で問題が発生しましたが、処理を継続します';
-          }
-
-          apiLog(`❌ kintone.${method}() エラー: ${errorMsg}`);
-          stats.error++;
-        }
-      } catch (error) {
-        // 例外が発生した場合の詳細なエラーハンドリング
-        let errorMsg = String(error);
-        let continueExecution = true; // 処理継続フラグ
+      if (result?.success) {
+        // 成功した場合は結果をフォーマットして表示
+        const formattedResult = formatResult(result.data);
+        apiLog('✅ アプリ統計API実行成功:');
+        apiLog(`   ${formattedResult}`);
+        stats.success++;
+      } else {
+        // エラーが発生した場合はエラーメッセージを表示
+        let errorMsg = result?.error || '不明なエラー';
 
         // エラータイプ別の詳細な処理
-        if (errorMsg.includes('403') || errorMsg.includes('Forbidden')) {
-          errorMsg = '権限不足（403 Forbidden）- このメソッドは権限が必要ですが、処理を継続します';
-        } else if (errorMsg.includes('401') || errorMsg.includes('Unauthorized')) {
-          errorMsg = '認証エラー（401 Unauthorized）- ログインが必要ですが、処理を継続します';
-        } else if (errorMsg.includes('404') || errorMsg.includes('Not Found')) {
-          errorMsg = 'リソースが見つかりません（404 Not Found）- 処理を継続します';
-        } else if (errorMsg.includes('500') || errorMsg.includes('Internal Server Error')) {
-          errorMsg = 'サーバーエラー（500）- kintoneサーバー側で問題が発生しましたが、処理を継続します';
-        } else if (errorMsg.includes('Timeout')) {
-          errorMsg = 'タイムアウトエラー - メソッドの実行に時間がかかりすぎましたが、処理を継続します';
-        } else {
-          // その他のエラーの場合
-          errorMsg = `予期しないエラー: ${errorMsg} - 処理を継続します`;
+        if (errorMsg.indexOf('403') !== -1 || errorMsg.indexOf('Forbidden') !== -1) {
+          errorMsg = '権限不足（403 Forbidden）- アプリ統計APIの実行権限がありません';
+        } else if (errorMsg.indexOf('401') !== -1 || errorMsg.indexOf('Unauthorized') !== -1) {
+          errorMsg = '認証エラー（401 Unauthorized）- ログインが必要です';
+        } else if (errorMsg.indexOf('404') !== -1 || errorMsg.indexOf('Not Found') !== -1) {
+          errorMsg = 'リソースが見つかりません（404 Not Found）- アプリ統計APIが存在しません';
+        } else if (errorMsg.indexOf('500') !== -1 || errorMsg.indexOf('Internal Server Error') !== -1) {
+          errorMsg = 'サーバーエラー（500）- kintoneサーバー側で問題が発生しました';
         }
 
-        // エラー情報を詳細にログ出力
-        console.warn(`⚠️ ${method} でエラーが発生しました（処理継続）:`, {
-          method: method,
-          error: error,
-          continueExecution: continueExecution,
-          index: `${i + 1}/${methods.length}`
-        });
-
-        apiLog(`❌ kintone.${method}() 例外: ${errorMsg}`);
+        apiLog(`❌ アプリ統計API実行エラー: ${errorMsg}`);
         stats.error++;
+      }
+    } catch (error) {
+      // 例外が発生した場合の詳細なエラーハンドリング
+      let errorMsg = String(error);
 
-
-        // エラーが発生しても処理を継続することを明示的にログ出力（常に出力）
-        if (i + 1 < methods.length) {
-          apiLog(`🔄 エラー後も処理を継続します (次: ${methods[i + 1]})`);
-        } else {
-          apiLog(`🔄 エラーが発生しましたが、最後のメソッドでした`);
-        }
+      // エラータイプ別の詳細な処理
+      if (errorMsg.indexOf('403') !== -1 || errorMsg.indexOf('Forbidden') !== -1) {
+        errorMsg = '権限不足（403 Forbidden）- アプリ統計APIの実行権限がありません';
+      } else if (errorMsg.indexOf('401') !== -1 || errorMsg.indexOf('Unauthorized') !== -1) {
+        errorMsg = '認証エラー（401 Unauthorized）- ログインが必要です';
+      } else if (errorMsg.indexOf('404') !== -1 || errorMsg.indexOf('Not Found') !== -1) {
+        errorMsg = 'リソースが見つかりません（404 Not Found）- アプリ統計APIが存在しません';
+      } else if (errorMsg.indexOf('500') !== -1 || errorMsg.indexOf('Internal Server Error') !== -1) {
+        errorMsg = 'サーバーエラー（500）- kintoneサーバー側で問題が発生しました';
+      } else if (errorMsg.indexOf('Timeout') !== -1) {
+        errorMsg = 'タイムアウトエラー - アプリ統計APIの実行に時間がかかりすぎました';
+      } else {
+        // その他のエラーの場合
+        errorMsg = `予期しないエラー: ${errorMsg}`;
       }
 
-      apiLog(''); // 見やすさのための空行
+      // エラー情報を詳細にログ出力
+      console.warn('⚠️ アプリ統計API実行でエラーが発生しました:', {
+        error: error,
+        timestamp: new Date().toISOString()
+      });
 
-      // 適度な待機時間（サーバーへの負荷を軽減し、エラー後の復旧時間を確保）
-      const waitTime = stats.error > 0 ? 500 : 300; // エラーがあった場合は少し長めに待機
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+      apiLog(`❌ アプリ統計API実行例外: ${errorMsg}`);
+      stats.error++;
     }
 
-    // 実行完了の統計情報をkintoneページのコンソールに送信
+    apiLog(''); // 見やすさのための空行
+
+    // スペース統計APIを実行
+    apiLog('📊 スペース統計APIを実行中...');
+    
     try {
-      await callKintoneMethod('showExecutionSummary', [stats], currentAppId);
+      // kintone.api()を使用してスペース統計APIを実行
+      const spaceResult = await callKintoneMethod('api', [
+        '/k/v1/spaces/statistics.json',
+        'GET'
+      ], null);
+
+      if (spaceResult?.success) {
+        // 成功した場合は結果をフォーマットして表示
+        const formattedResult = formatResult(spaceResult.data);
+        apiLog('✅ スペース統計API実行成功:');
+        apiLog(`   ${formattedResult}`);
+        stats.success++;
+      } else {
+        // エラーが発生した場合はエラーメッセージを表示
+        let errorMsg = spaceResult?.error || '不明なエラー';
+
+        // エラータイプ別の詳細な処理
+        if (errorMsg.indexOf('403') !== -1 || errorMsg.indexOf('Forbidden') !== -1) {
+          errorMsg = '権限不足（403 Forbidden）- スペース統計APIの実行権限がありません';
+        } else if (errorMsg.indexOf('401') !== -1 || errorMsg.indexOf('Unauthorized') !== -1) {
+          errorMsg = '認証エラー（401 Unauthorized）- ログインが必要です';
+        } else if (errorMsg.indexOf('404') !== -1 || errorMsg.indexOf('Not Found') !== -1) {
+          errorMsg = 'リソースが見つかりません（404 Not Found）- スペース統計APIが存在しません';
+        } else if (errorMsg.indexOf('500') !== -1 || errorMsg.indexOf('Internal Server Error') !== -1) {
+          errorMsg = 'サーバーエラー（500）- kintoneサーバー側で問題が発生しました';
+        }
+
+        apiLog(`❌ スペース統計API実行エラー: ${errorMsg}`);
+        stats.error++;
+      }
     } catch (error) {
-      debugError('❌ 統計サマリー送信エラー:', error);
+      // 例外が発生した場合の詳細なエラーハンドリング
+      let errorMsg = String(error);
+
+      // エラータイプ別の詳細な処理
+      if (errorMsg.indexOf('403') !== -1 || errorMsg.indexOf('Forbidden') !== -1) {
+        errorMsg = '権限不足（403 Forbidden）- スペース統計APIの実行権限がありません';
+      } else if (errorMsg.indexOf('401') !== -1 || errorMsg.indexOf('Unauthorized') !== -1) {
+        errorMsg = '認証エラー（401 Unauthorized）- ログインが必要です';
+      } else if (errorMsg.indexOf('404') !== -1 || errorMsg.indexOf('Not Found') !== -1) {
+        errorMsg = 'リソースが見つかりません（404 Not Found）- スペース統計APIが存在しません';
+      } else if (errorMsg.indexOf('500') !== -1 || errorMsg.indexOf('Internal Server Error') !== -1) {
+        errorMsg = 'サーバーエラー（500）- kintoneサーバー側で問題が発生しました';
+      } else if (errorMsg.indexOf('Timeout') !== -1) {
+        errorMsg = 'タイムアウトエラー - スペース統計APIの実行に時間がかかりすぎました';
+      } else {
+        // その他のエラーの場合
+        errorMsg = `予期しないエラー: ${errorMsg}`;
+      }
+
+      // エラー情報を詳細にログ出力
+      console.warn('⚠️ スペース統計API実行でエラーが発生しました:', {
+        error: error,
+        timestamp: new Date().toISOString()
+      });
+
+      apiLog(`❌ スペース統計API実行例外: ${errorMsg}`);
+      stats.error++;
+    }
+
+    apiLog(''); // 見やすさのための空行
+
+    // 実行完了の結果情報をkintoneページのコンソールに送信
+    try {
+      await callKintoneMethod('showExecutionSummary', [stats], null);
+    } catch (error) {
+      debugError('❌ 実行結果サマリー送信エラー:', error);
     }
 
     // UIのステータスを更新
-    statusDiv.textContent = `実行完了！成功:${stats.success} エラー:${stats.error} スキップ:${stats.skipped}`;
+    statusDiv.textContent = `実行完了！成功:${stats.success} エラー:${stats.error}`;
 
   } catch (error) {
     // 全体的なエラーハンドリング

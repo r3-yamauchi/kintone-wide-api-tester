@@ -4,20 +4,22 @@
 
 ## プロジェクト概要
 
-このプロジェクトは、kintone JavaScript APIの動作確認とテストを目的としたブラウザ拡張機能です。kintoneページで利用可能なすべてのJavaScript APIメソッドを自動検出し、順次実行してDevToolsのConsoleに結果を表示します。
+このプロジェクトは、kintoneワイドコースAPIをテストするブラウザ拡張機能です。
+まず kintone.getAvailableApiTypes() を実行してワイドコースAPIを実行できる環境であるかを確認し、
+ワイドコース専用APIの動作確認を行い、DevToolsのConsoleに結果を表示します。
 
 ### 最新バージョンの主要機能
 
-- **自動メソッド検出**: 60+個のkintone JavaScript APIメソッドを再帰的に自動検出
-- **アプリID自動取得**: `kintone.app.getId()`を最初に実行し、以降のメソッドで活用
-- **アプリアイコン取得**: アプリID取得成功時に`kintone.app.getIcons([appId])`を自動実行
-- **インテリジェントUI**: 非kintoneページでは適切なガイダンスを表示、ボタンを非表示
+- **ワイドコース確認**: `kintone.getAvailableApiTypes()`でWIDE APIの利用可否をチェック
+- **作業者が自分に割り当てられているアプリ取得**: `kintone.app.getAssignedApps()` を実行
+- **ワイドコース専用REST API**: `/k/v1/apps/statistics.json` と `/k/v1/spaces/statistics.json` を実行
+- **インテリジェントUI**: 非kintoneページでは適切なガイダンスを表示、ワイドコース未契約時は処理停止
 - **堅牢なエラーハンドリング**: 403、401、404、500、タイムアウトエラーでも処理継続
-- **詳細な統計情報**: 成功・エラー・スキップ件数の表示
+- **詳細な統計情報**: 成功・エラー件数の表示
 
 ## デバッグモード
 
-デフォルトでは、拡張機能は重要なkintone JavaScript API実行結果のみをコンソールに出力します。
+デフォルトでは、拡張機能は重要なkintone REST API実行結果のみをコンソールに出力します。
 詳細なデバッグログが必要な場合は、以下の手順でデバッグモードを有効にしてください：
 
 1. `config/debug.ts` の `DEBUG_MODE` を `true` に変更
@@ -30,6 +32,7 @@
 - Bridge script の動作ログ
 - kintoneオブジェクトの存在確認ログ
 - 内部メソッドの実行ログ（`[内部メソッド]`として明示）
+- API URL の生成ログ
 
 ## エラーハンドリング
 
@@ -46,7 +49,7 @@
 詳細なデバッグログが必要な場合は、以下の手順でデバッグモードを有効にしてください：
 
 1. `config/debug.ts` の `DEBUG_MODE` を `true` に変更
-2. `public/kintone-bridge.js` の `DEBUG_MODE` を `true` に変更  
+2. `public/kintone-bridge.js` の `DEBUG_MODE` を `true` に変更
 3. 拡張機能をリビルド（`npm run build` または `npm run dev`）
 
 デバッグモードでは以下のログが追加で出力されます：
@@ -80,20 +83,19 @@
 
 ### 主要な機能
 
-- **自動メソッド検出**: kintoneオブジェクトを再帰的に探索して利用可能なメソッドを検出（通常60+個）
-- **アプリID自動取得**: 最初に`kintone.app.getId()`を実行してアプリIDを取得・記憶し、以降のメソッドで活用
-- **アプリアイコン取得**: アプリID取得成功時に`kintone.app.getIcons([appId])`を自動実行
-- **インテリジェントUI**: 非kintoneページでは適切なガイダンスメッセージを表示し、ボタンを非表示
+- **ワイドコース確認**: 最初に`kintone.getAvailableApiTypes()`を実行してWIDE APIの利用可否をチェック
+- **作業者が自分に割り当てられているアプリ取得**: `kintone.app.getAssignedApps()`を実行
+- **ワイドコース専用REST API**: `kintone.api('/k/v1/apps/statistics.json', 'GET')`と`kintone.api('/k/v1/spaces/statistics.json', 'GET')`を実行
+- **インテリジェントUI**: 非kintoneページでは適切なガイダンスメッセージを表示、ワイドコース未契約時は処理停止
 - **堅牢なエラーハンドリング**: 403、401、404、500、タイムアウトエラーが発生しても処理を継続
-- **安全な実行**: 副作用のあるメソッドや引数が必要なメソッドは自動でスキップ
-- **詳細なログ出力**: 各メソッドの実行結果をDevToolsのConsoleに見やすく表示
-- **統計情報**: 成功・エラー・スキップの件数を表示
+- **詳細なログ出力**: 各APIの実行結果をDevToolsのConsoleに見やすく表示
+- **統計情報**: 成功・エラーの件数を表示
 - **内部メソッド制御**: デバッグモード以外では内部処理メソッドのログを非表示
 
 ### ディレクトリ構造
 
 ```text
-kintone-js-api-tester/
+kintone-wide-api-tester/
 ├── entrypoints/              # 拡張機能のエントリーポイント
 │   ├── background.ts         # バックグラウンドスクリプト
 │   ├── content.ts           # コンテンツスクリプト（クロスコンテキスト通信）
@@ -102,7 +104,7 @@ kintone-js-api-tester/
 │       ├── main.ts         # ポップアップメインロジック
 │       └── style.css       # ポップアップスタイル
 ├── public/                  # 公開アセット
-│   ├── kintone-bridge.js   # kintone JavaScript API実行ブリッジスクリプト
+│   ├── kintone-bridge.js   # kintone REST API実行ブリッジスクリプト
 │   └── icon/               # 拡張機能アイコン
 ├── wxt.config.ts           # WXT設定ファイル
 └── package.json            # npm設定
@@ -113,8 +115,9 @@ kintone-js-api-tester/
 #### `entrypoints/popup/main.ts`
 
 - ポップアップUIのメインロジック（動的UI生成）
-- kintoneメソッドの実行統制とエラーハンドリング
+- kintone REST APIの実行統制とエラーハンドリング
 - アプリID自動取得とアプリアイコン取得機能
+- アプリ統計情報とスペース統計情報の取得
 - 実行結果のフォーマットと表示
 - 非kintoneページでのガイダンス表示制御
 
@@ -126,12 +129,14 @@ kintone-js-api-tester/
 
 #### `public/kintone-bridge.js`
 
-- メインワールドで実行されるブリッジスクリプト（~18KB）
+- メインワールドで実行されるブリッジスクリプト（~20KB）
 - kintoneオブジェクトに直接アクセスしてAPIを実行
-- メソッドの動的検出とDOM要素の文字列変換
+- `kintone.api()`を使用した統計情報APIの実行
+- DOM要素の文字列変換
 - DevToolsコンソールへの実行結果ログ出力
-- 内部メソッドとkintone JavaScript APIメソッドの適切な区別表示
+- 内部メソッドとkintone APIメソッドの適切な区別表示
 - HTTPエラー（403、401、404、500）の詳細情報付きエラーハンドリング
+- APIのURLに応じた適切なログメッセージ表示
 
 #### `wxt.config.ts`
 
@@ -166,8 +171,8 @@ kintone-js-api-tester/
                                                │  Bridge Script      │
                                                │   (main world)      │
                                                │                     │
-                                               │ ▶ kintone.getDomain()│
-                                               │ ▶ kintone.app.get() │
+                                               │ ▶ kintone.getAvailableApiTypes()│
+                                               │ ▶ kintone.api() │
                                                │ ▶ ...               │
                                                └─────────────────────┘
 ```
@@ -187,36 +192,6 @@ kintone-js-api-tester/
 
 ### 重要な技術的実装詳細
 
-#### メソッド検出アルゴリズム
-
-- kintoneオブジェクトを再帰的に探索（最大10層まで）
-- 関数型のプロパティのみを検出（通常60+個）
-- Promise型など問題のあるオブジェクトは除外
-- 無限ループ防止のための深度制限
-- 実行時に動的検出のため、新しいkintone JavaScript APIも自動対応
-
-#### スキップ対象メソッド
-
-以下のメソッドは引数が必要または副作用があるため自動的にスキップされます：
-
-**副作用があるメソッド（`skipMethods`）：**
-- `kintone.api()` - 引数が必要
-- `kintone.events.on()` - イベントハンドラーが必要
-- `kintone.oauth.*` - OAuth設定が必要
-- `kintone.plugin.*` - プラグイン設定が必要
-- `Promise` - コンストラクタ
-- `proxy` - プロキシ設定
-
-**引数が必要なメソッド（`problematicMethods`）：**
-- `kintone.app.getFieldElements(fieldCode)` - フィールドコードが必要
-- `kintone.app.getAssignedApps()` - 引数が必要
-- `kintone.app.getLookupTargetAppId()` - 引数が必要
-- `kintone.app.getRelatedRecordsTargetAppId()` - 引数が必要
-
-**既に実行済みのメソッド：**
-- `kintone.app.getId()` - 最初に実行済み
-- `kintone.app.getIcons()` - アプリID取得時に実行済み
-
 #### エラーハンドリングとパフォーマンス
 
 - **DOM要素処理**: DOM要素は安全に文字列表現に変換
@@ -225,8 +200,8 @@ kintone-js-api-tester/
 - **処理継続**: エラー発生時も必ず次のメソッドに進む設計
 - **メモリ管理**: イベントリスナーの適切なクリーンアップ
 - **タイムアウト**: 設定可能なタイムアウト（デフォルト10秒）
-- **負荷制限**: メソッド間300-500ms間隔でシステム負荷を軽減（エラー時は少し長め）
-- **適応的待機**: エラー発生状況に応じて待機時間を調整
+- **順次実行**: 各APIを順次実行し、エラー発生時も処理を継続
+- **適応的ログ**: APIのURLに応じてログメッセージを適切に表示
 
 ## 開発時の注意事項
 
@@ -241,7 +216,7 @@ kintone-js-api-tester/
 
 1. kintoneページ（`*.cybozu.com`または`*.kintone.com`）でのみ動作します
 2. DevToolsのConsoleでAPI実行結果を確認します
-   - 非デバッグモード: kintone JavaScript APIの実行結果のみ
+   - 非デバッグモード: kintone REST APIの実行結果のみ
    - デバッグモード: 内部処理も含む詳細ログ
 3. 非kintoneページでは適切なガイダンスが表示されることを確認します
 4. エラーハンドリングのテストには403エラーが発生しやすいAPIを使用します
@@ -267,7 +242,7 @@ kintone-js-api-tester/
 #### 本番環境での使用注意
 
 - APIキーや認証情報はログに出力されない
-- 副作用のあるAPIは自動的にスキップ
+- 統計情報APIのみを実行し、データの変更は行わない
 - 適切な権限管理とモニタリングが必要
 - HTTPエラー（403、401、404、500）は正常な動作として扱われる
 - 内部メソッドのログは本番環境では非表示
@@ -287,35 +262,33 @@ npm run zip:firefox  # Firefox版ZIP
 
 ## コンソール出力仕様
 
-この拡張機能は、kintone JavaScript APIの実行結果をkintoneページのDevToolsコンソールに出力します。
+この拡張機能は、kintone REST APIの実行結果をkintoneページのDevToolsコンソールに出力します。
 
 ### ログ出力の種類
 
-1. **メソッド実行ログ**: `📝 kintone.methodName() 実行中...`
-2. **成功結果ログ**: `✅ kintone.methodName() 結果:`
-3. **エラーログ**: `❌ kintone.methodName() エラー:`
-4. **スキップログ**: `⏭️ methodName - スキップ（理由）`
-5. **統計情報**: 実行完了時の成功・エラー・スキップ件数
+1. **API実行ログ**:
+   - `📝 アプリの使用状況を取得 /k/v1/apps/statistics.json 実行中...`
+   - `📝 スペースの使用状況を取得 /k/v1/spaces/statistics.json 実行中...`
+2. **成功結果ログ**:
+   - `✅ アプリの使用状況を取得 /k/v1/apps/statistics.json 結果:`
+   - `✅ スペースの使用状況を取得 /k/v1/spaces/statistics.json 結果:`
+3. **エラーログ**:
+   - `❌ アプリの使用状況を取得 /k/v1/apps/statistics.json エラー:`
+   - `❌ スペースの使用状況を取得 /k/v1/spaces/statistics.json エラー:`
+4. **統計情報**: 実行完了時の成功・エラー件数
 
 ### デバッグモード別出力
 
-- **非デバッグモード** (`DEBUG_MODE = false`): kintone JavaScript APIの実行結果のみ
+- **非デバッグモード** (`DEBUG_MODE = false`): kintone REST APIの実行結果のみ
 - **デバッグモード** (`DEBUG_MODE = true`): 内部処理を含む詳細ログ
 
 ### 内部メソッドの処理
 
 以下の内部メソッドは、非デバッグモードではログが非表示となります：
-- `logInitialSetup` - 初期設定ログ
-- `logAppIdSuccess` - アプリID取得成功ログ
-- `logAppIdFailure` - アプリID取得失敗ログ
-- `logAppIdError` - アプリID取得エラーログ
-- `logIconsStart` - アイコン取得開始ログ
+- `logWideCheckStart` - ワイドコースチェック開始ログ
+- `logWideCheckSuccess` - ワイドコースチェック成功ログ
+- `logWideCheckError` - ワイドコースチェックエラーログ
+- `logAssignedAppsStart` - 割り当てアプリ取得開始ログ
 - `showExecutionSummary` - 実行結果サマリー
 
 デバッグモードでは、これらのメソッドに`[内部メソッド]`のプレフィックスが付いて表示されます。
-
----
-
-**最終更新**: 2025年6月27日  
-**バージョン**: v1.0.0  
-**主要機能**: アプリID自動取得、堅牢なエラーハンドリング、インテリジェントUI、内部メソッドログ制御、TypeScript完全対応
